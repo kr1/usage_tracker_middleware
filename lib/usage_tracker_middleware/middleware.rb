@@ -1,7 +1,7 @@
 require 'timeout'
-require 'usage_tracker/log' 
-require 'usage_tracker/context'
-require 'usage_tracker/railtie' if defined?(Rails)
+require 'usage_tracker_middleware/log'
+require 'usage_tracker_middleware/context'
+require 'usage_tracker_middleware/railtie' if defined?(Rails)
 
 # This middleware extracts some data from the incoming request
 # and sends it to the specified server.
