@@ -13,7 +13,7 @@ module UsageTrackerMiddleware
     @@host    = 'localhost'
     @@port    = 5985
     @@backend = `hostname`.strip
-    @@logger  = UsageTrackerMiddleware::Log.new 
+    @@logger  = UsageTrackerMiddleware::Log.new
 
     @@headers = [
       # "REMOTE_ADDR",
@@ -42,53 +42,64 @@ module UsageTrackerMiddleware
     ].freeze
 
     def initialize(app, options={})
-      @@host    = options[:host]     if options.keys.include?(:host) 
-      @@port    = options[:port]     if options.keys.include?(:port) 
+      @@host    = options[:host]     if options.keys.include?(:host)
+      @@port    = options[:port]     if options.keys.include?(:port)
       @@backend = options[:backend]  if options.keys.include?(:backend)
       @app      = app
     end
 
     def call(env)
       req_start = Time.now.to_f
-      data = {
-        :user_id   => env['rack.session'][:user_id],
-        :remote_ip => env['action_dispatch.remote_ip'].to_s, 
-        :backend   => @@backend,
-        :xhr       => env['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest',
-        :context   => env[Context.key],
-        :env       => {},
-        :timestamp => Time.now.to_f
-      }
-      @@headers.each {|key| data[:env][key.downcase] = env[key] unless env[key].blank?}
-      
+      data = {:env => {}}
+
+      begin
+        data.merge!({
+          :user_id   => env['rack.session'][:user_id],
+          :remote_ip => env['action_dispatch.remote_ip'].to_s,
+          :backend   => @@backend,
+          :xhr       => env['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest',
+          :context   => env[Context.key],
+          :timestamp => Time.now.to_f
+        })
+        @@headers.each {|key| data[:env][key.downcase] = env[key] unless env[key].blank?}
+      rescue
+        @local_error = $!
+      end
+
       begin
         response  = @app.call env
       rescue Exception => exception
-        app_raised_exception = exception || false
+        @app_raised_exception = exception
+        data.merge!(:message => exception.message,
+                    :backtrace => exception.backtrace)
       ensure
         req_end   = Time.now.to_f
         data.merge!(
             :duration  => ((req_end - req_start) * 1000).to_i,
-            :status    => !!app_raised_exception ? 500 : response[0] # response contains [status, headers, body]
+            :status    => (!!@app_raised_exception || @local_error) ? 500 : response[0] # response contains [status, headers, body]
         )
       end
+
       begin
         self.class.track(data.to_json)
       rescue
-        # Error in usage tracker itself
-        @@logger.error($!.message)
-        @@logger.error($!.backtrace.join("\n"))
+        @local_error = $!
       end
 
-      raise app_raised_exception if app_raised_exception 
-      
+      if @local_error
+        @@logger.error(@local_error.message)
+        @@logger.error(@local_error.backtrace.join("\n"))
+      end
+
+      raise @app_raised_exception if @app_raised_exception
+
       return response
     end
 
     class << self
 
-      def development? 
-        defined?(Rails) && Rails.env.development? 
+      def development?
+        defined?(Rails) && Rails.env.development?
       end
 
       # Writes the given `data` to the server, using the UDP protocol.
@@ -98,7 +109,7 @@ module UsageTrackerMiddleware
       def track(data)
         Timeout.timeout(1) do
 
-          @@logger.debug("Sending to #{@@host}:#{@@port} : #{data.to_json}") if development? 
+          @@logger.debug("Sending to #{@@host}:#{@@port} : #{data.to_json}") if development?
 
           UDPSocket.open do |sock|
             sock.connect(@@host, @@port.to_i)
