@@ -10,8 +10,8 @@ begin
     gemspec.name        = 'panmind-usage-tracker-middleware'
     gemspec.summary     = 'a rack middleware that helps to tracks usage' 
     gemspec.description = 'This software collects usage information of ' \
-                          'a rack-application, assembles a json object ' \
-                          'and sends this object via UDP to a specified server'
+                          'a rack-application. It assembles a json object ' \
+                          'and sends this object via UDP to a specified server.'
     gemspec.authors     = ['Christian Woerner', 'Fabrizio Regini', 'Marcello Barnaba']
     gemspec.homepage    = 'http://github.com/Panmind/usage_tracker_middleware'
     gemspec.email       = 'info@panmind.com'

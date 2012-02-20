@@ -4,7 +4,7 @@ require 'usage_tracker/context'
 require 'usage_tracker/railtie' if defined?(Rails)
 
 # This middleware extracts some data from the incoming request
-# and sends it to the reactor, that parses and stores it.
+# and sends it to the specified server.
 #
 
 module UsageTrackerMiddleware
@@ -91,7 +91,7 @@ module UsageTrackerMiddleware
         defined?(Rails) && Rails.env.development? 
       end
 
-      # Writes the given `data` to the reactor, using the UDP protocol.
+      # Writes the given `data` to the server, using the UDP protocol.
       # Times out after 1 second. If a write error occurs, data is lost.
       #
 
