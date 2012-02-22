@@ -49,6 +49,7 @@ module UsageTrackerMiddleware
     end
 
     def call(env)
+      @app_raised_exception = false
       req_start = Time.now.to_f
       data = {:env => {}}
 
@@ -58,7 +59,6 @@ module UsageTrackerMiddleware
           :remote_ip => env['action_dispatch.remote_ip'].to_s,
           :backend   => @@backend,
           :xhr       => env['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest',
-          :context   => env[Context.key],
           :timestamp => Time.now.to_f
         })
         @@headers.each {|key| data[:env][key.downcase] = env[key] unless env[key].blank?}
@@ -76,6 +76,7 @@ module UsageTrackerMiddleware
         req_end   = Time.now.to_f
         data.merge!(
             :duration  => ((req_end - req_start) * 1000).to_i,
+            :context   => env[Context.key],
             :status    => (!!@app_raised_exception || @local_error) ? 500 : response[0] # response contains [status, headers, body]
         )
       end
